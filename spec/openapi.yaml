@@ -1,0 +1,222 @@
+openapi: 3.0.0
+info:
+  title: Call Calendar API
+  description: |-
+    Календарь звонков — упрощённый аналог Cal.com.
+
+    Две роли без авторизации: владелец календаря (предустановленный профиль,
+    админ-часть) и гость (бронирует слоты без аккаунта).
+
+    Бизнес-правила:
+    - слоты по 30 минут, 24/7;
+    - окно записи — ближайшие 14 дней от текущей даты;
+    - на одно время нельзя две брони, даже для разных типов событий.
+  version: 0.0.0
+tags: []
+paths:
+  /api/bookings:
+    get:
+      operationId: Bookings_list
+      description: Предстоящие встречи всех типов (владелец).
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Booking'
+    post:
+      operationId: Bookings_create
+      description: Записаться на свободный слот (гость). Конфликт времени — 409.
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingRequest'
+  /api/event-types:
+    get:
+      operationId: EventTypes_list
+      description: Список всех типов событий (гость).
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventType'
+    post:
+      operationId: EventTypes_create
+      description: Создать тип события (владелец).
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventType'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEventTypeRequest'
+  /api/event-types/{eventTypeId}/slots:
+    get:
+      operationId: Slots_list
+      description: |-
+        Свободные 30-минутные слоты на указанную дату (в пределах окна 14 дней).
+        Занятое время исключается — в ответе только свободные слоты.
+      parameters:
+        - name: eventTypeId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Slot'
+components:
+  schemas:
+    Booking:
+      type: object
+      required:
+        - id
+        - eventTypeId
+        - start
+        - end
+        - guestName
+        - guestEmail
+      properties:
+        id:
+          type: string
+        eventTypeId:
+          type: string
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        guestName:
+          type: string
+        guestEmail:
+          type: string
+      description: Бронирование встречи (гость).
+    CreateBookingRequest:
+      type: object
+      required:
+        - eventTypeId
+        - start
+        - guestName
+        - guestEmail
+      properties:
+        eventTypeId:
+          type: string
+        start:
+          type: string
+          format: date-time
+        guestName:
+          type: string
+        guestEmail:
+          type: string
+      description: Запрос на создание брони (гость). start должен быть кратным 30 минутам.
+    CreateEventTypeRequest:
+      type: object
+      required:
+        - title
+        - durationMinutes
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        durationMinutes:
+          type: integer
+          format: int32
+          description: Длительность встречи в минутах. Сетка слотов — 30 минут.
+      description: Запрос на создание типа события (владелец).
+    ErrorResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+        errors:
+          type: object
+          additionalProperties: {}
+    EventType:
+      type: object
+      required:
+        - id
+        - title
+        - description
+        - durationMinutes
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        durationMinutes:
+          type: integer
+          format: int32
+      description: Тип события, публикуемый владельцем календаря.
+    Slot:
+      type: object
+      required:
+        - start
+        - end
+        - available
+      properties:
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        available:
+          type: boolean
+      description: Свободный слот в выбранный день (окно 14 дней).

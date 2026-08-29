@@ -1,0 +1,11 @@
+{
+  "name": "call-calendar-spec",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TypeSpec API contract for the Call Calendar project",
+  "dependencies": {
+    "@typespec/compiler": "^1.0.0",
+    "@typespec/http": "^1.0.0",
+    "@typespec/openapi3": "^1.0.0"
+  }
+}
