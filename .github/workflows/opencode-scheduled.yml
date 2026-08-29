@@ -35,6 +35,17 @@ jobs:
             --chrome-flags="--headless --no-sandbox --disable-gpu --no-zygote" \
             --output json --output html --output-path ./lighthouse/report
 
+      - name: Краткая сводка баллов (для агента)
+        run: |
+          jq -r '
+            "URL: " + (.finalUrl // "n/a"),
+            "Performance: " + (.categories.performance.score * 100 | floor | tostring),
+            "Accessibility: " + (.categories.accessibility.score * 100 | floor | tostring),
+            "Best Practices: " + (.categories["best-practices"].score * 100 | floor | tostring),
+            "SEO: " + (.categories.seo.score * 100 | floor | tostring)
+          ' ./lighthouse/report.report.json > ./lighthouse/summary.txt
+          cat ./lighthouse/summary.txt
+
       - name: Загрузка отчёта (artifact)
         uses: actions/upload-artifact@v4
         with:
@@ -49,14 +60,15 @@ jobs:
         with:
           model: deepseek/deepseek-v4-flash
           prompt: |
-            Ты — инженер DevOps. Прочитай файл ./lighthouse/report.json — это результат Lighthouse
-            по https://call-calendar-production.up.railway.app.
+            Ты — инженер DevOps. Прочитай файл ./lighthouse/summary.txt — это баллы Lighthouse
+            по https://call-calendar-production.up.railway.app (performance, accessibility,
+            best-practices, seo).
 
             Опубликуй результат ночной проверки:
             1. Если существует открытый issue, начинающийся с "Lighthouse:", обнови его комментарием
                со свежими баллами (не создавай новый).
             2. Иначе создай issue «Lighthouse: <YYYY-MM-DD>» со сводкой:
-               - итоговые баллы по осям: performance, accessibility, best-practices, seo;
+               - баллы по осям из summary.txt;
                - если какой-то балл ниже 90 — топ-3 проблемы и конкретные рекомендации по правкам
                  в коде проекта (backend/ и frontend/);
                - ссылку на артефакт отчёта (workflow run).
