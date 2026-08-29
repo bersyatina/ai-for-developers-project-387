@@ -24,11 +24,11 @@ class SlotService
     /**
      * @return array<int, array{start: string, end: string, available: bool}>
      */
-    public function availableSlots(EventType $eventType, CarbonImmutable $date): array
+    public function availableSlots(EventType $eventType, CarbonImmutable $date, string $timezone = 'UTC'): array
     {
-        $this->assertDateInWindow($date);
+        $this->assertDateInWindow($date, $timezone);
 
-        $slots = $this->generateSlots($date);
+        $slots = $this->generateSlots($date, $timezone);
 
         $occupied = $this->occupiedIntervalsForDay($date);
 
@@ -52,10 +52,11 @@ class SlotService
 
     /**
      * Дата должна входить в окно записи: от сегодня до сегодня + 13 дней включительно.
+     * «Сегодня» вычисляется в часовом поясе клиента.
      */
-    public function assertDateInWindow(CarbonImmutable $date): void
+    public function assertDateInWindow(CarbonImmutable $date, string $timezone = 'UTC'): void
     {
-        $today = CarbonImmutable::today();
+        $today = CarbonImmutable::today($timezone);
         $windowEnd = $today->addDays(self::WINDOW_DAYS);
 
         if ($date->lt($today) || $date->gte($windowEnd)) {
@@ -85,13 +86,16 @@ class SlotService
     }
 
     /**
+     * 30-минутные слоты дня; для «сегодня» отсекаются уже прошедшие.
+     * Граница «сейчас» — в часовом поясе клиента.
+     *
      * @return array<int, array{start: CarbonImmutable, end: CarbonImmutable}>
      */
-    private function generateSlots(CarbonImmutable $date): array
+    private function generateSlots(CarbonImmutable $date, string $timezone): array
     {
         $slots = [];
         $dayStart = $date->startOfDay();
-        $now = CarbonImmutable::now();
+        $now = CarbonImmutable::now($timezone);
 
         for ($i = 0; $i < self::SLOTS_PER_DAY; $i++) {
             $slotStart = $dayStart->addMinutes($i * self::SLOT_MINUTES);
