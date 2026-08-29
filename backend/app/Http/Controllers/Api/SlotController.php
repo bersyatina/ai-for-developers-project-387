@@ -17,10 +17,12 @@ class SlotController extends Controller
     {
         $validated = $request->validate([
             'date' => ['required', 'date_format:Y-m-d'],
+            'tz' => ['nullable', 'string', 'timezone'],
         ]);
 
-        $date = CarbonImmutable::createFromFormat('Y-m-d', $validated['date']);
+        $timezone = $validated['tz'] ?? config('app.timezone');
+        $date = CarbonImmutable::createFromFormat('Y-m-d', $validated['date'], $timezone);
 
-        return response()->json($this->slots->availableSlots($eventType, $date));
+        return response()->json($this->slots->availableSlots($eventType, $date, $timezone));
     }
 }
