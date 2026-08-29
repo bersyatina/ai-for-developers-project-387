@@ -1,0 +1,62 @@
+name: opencode-scheduled
+
+# Ночная проверка: Lighthouse CLI по расписанию (утро по Екатеринбургу ~11:30).
+# Тот же запуск доступен вручную из вкладки Actions (workflow_dispatch).
+
+on:
+  schedule:
+    - cron: "30 5 * * *" # каждый день в 05:30 UTC
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+  issues: write
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Запуск Lighthouse CLI
+        run: |
+          npx --yes lighthouse https://call-calendar-production.up.railway.app \
+            --chrome-flags="--headless --no-sandbox --disable-gpu --no-zygote" \
+            --output json --output html --output-path ./lighthouse/report
+
+      - name: Загрузка отчёта (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-report
+          path: ./lighthouse/
+          retention-days: 14
+
+      - name: Публикация результата агентом
+        uses: anomalyco/opencode/github@latest
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        with:
+          model: deepseek/deepseek-chat
+          prompt: |
+            Ты — инженер DevOps. Прочитай файл ./lighthouse/report.json — это результат Lighthouse
+            по https://call-calendar-production.up.railway.app.
+
+            Опубликуй результат ночной проверки:
+            1. Если существует открытый issue, начинающийся с "Lighthouse:", обнови его комментарием
+               со свежими баллами (не создавай новый).
+            2. Иначе создай issue «Lighthouse: <YYYY-MM-DD>» со сводкой:
+               - итоговые баллы по осям: performance, accessibility, best-practices, seo;
+               - если какой-то балл ниже 90 — топ-3 проблемы и конкретные рекомендации по правкам
+                 в коде проекта (backend/ и frontend/);
+               - ссылку на артефакт отчёта (workflow run).
+            Комментарии и issue пиши на русском.
