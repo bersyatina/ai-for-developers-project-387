@@ -9,7 +9,6 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write
   contents: read
   issues: write
 
@@ -53,23 +52,22 @@ jobs:
           path: ./lighthouse/
           retention-days: 14
 
-      - name: Публикация результата агентом
-        uses: anomalyco/opencode/github@latest
+      - name: Публикация сводки (issue)
         env:
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-        with:
-          model: deepseek/deepseek-v4-flash
-          prompt: |
-            Ты — инженер DevOps. Прочитай файл ./lighthouse/summary.txt — это баллы Lighthouse
-            по https://call-calendar-production.up.railway.app (performance, accessibility,
-            best-practices, seo).
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          DATE=$(date +%F)
+          TITLE="Lighthouse: $DATE"
+          BODY="Ночная проверка Lighthouse по https://call-calendar-production.up.railway.app
 
-            Опубликуй результат ночной проверки:
-            1. Если существует открытый issue, начинающийся с "Lighthouse:", обнови его комментарием
-               со свежими баллами (не создавай новый).
-            2. Иначе создай issue «Lighthouse: <YYYY-MM-DD>» со сводкой:
-               - баллы по осям из summary.txt;
-               - если какой-то балл ниже 90 — топ-3 проблемы и конкретные рекомендации по правкам
-                 в коде проекта (backend/ и frontend/);
-               - ссылку на артефакт отчёта (workflow run).
-            Комментарии и issue пиши на русском.
+$(cat ./lighthouse/summary.txt)
+
+Полный отчёт (artifact): https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+"
+          EXISTING=$(gh issue list --search "Lighthouse:" --state open --json number --limit 1 | jq -r '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+            echo "Обновлён issue #$EXISTING"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi
