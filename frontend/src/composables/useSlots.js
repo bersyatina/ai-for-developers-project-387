@@ -1,6 +1,8 @@
 import { ref } from 'vue'
 import { eventTypesApi } from '@/api/eventTypes'
 
+const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+
 export function useSlots(eventTypeId) {
     const slots = ref([])
     const loading = ref(false)
@@ -10,7 +12,7 @@ export function useSlots(eventTypeId) {
         loading.value = true
         error.value = null
         try {
-            slots.value = await eventTypesApi.slots(eventTypeId, date)
+            slots.value = await eventTypesApi.slots(eventTypeId, date, timeZone)
         } catch (e) {
             error.value = e.message
             slots.value = []
