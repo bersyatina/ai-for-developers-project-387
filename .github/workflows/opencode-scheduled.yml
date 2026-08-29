@@ -30,6 +30,7 @@ jobs:
 
       - name: Запуск Lighthouse CLI
         run: |
+          mkdir -p ./lighthouse
           npx --yes lighthouse https://call-calendar-production.up.railway.app \
             --chrome-flags="--headless --no-sandbox --disable-gpu --no-zygote" \
             --output json --output html --output-path ./lighthouse/report
