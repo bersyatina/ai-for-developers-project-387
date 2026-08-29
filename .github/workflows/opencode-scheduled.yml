@@ -34,7 +34,7 @@ jobs:
             --chrome-flags="--headless --no-sandbox --disable-gpu --no-zygote" \
             --output json --output html --output-path ./lighthouse/report
 
-      - name: Краткая сводка баллов (для агента)
+      - name: Краткая сводка баллов
         run: |
           jq -r '
             "URL: " + (.finalUrl // "n/a"),
@@ -60,10 +60,10 @@ jobs:
           TITLE="Lighthouse: $DATE"
           BODY="Ночная проверка Lighthouse по https://call-calendar-production.up.railway.app
 
-$(cat ./lighthouse/summary.txt)
+          $(cat ./lighthouse/summary.txt)
 
-Полный отчёт (artifact): https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-"
+          Полный отчёт (artifact): https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          "
           EXISTING=$(gh issue list --search "Lighthouse:" --state open --json number --limit 1 | jq -r '.[0].number // empty')
           if [ -n "$EXISTING" ]; then
             gh issue comment "$EXISTING" --body "$BODY"
