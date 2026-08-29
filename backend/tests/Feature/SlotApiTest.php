@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Booking;
 use App\Models\EventType;
+use App\Services\SlotService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -114,6 +115,48 @@ class SlotApiTest extends TestCase
             fn (string $iso) => CarbonImmutable::parse($iso)->gt($clientNow)
         ));
         // Первый слот — ближайшая 30-минутная граница после 01:30 по клиенту.
+        $this->assertSame('2026-01-02T02:00:00+03:00', $starts->first());
+    }
+
+    public function test_today_slots_respect_client_timezone_west_of_utc(): void
+    {
+        // Серверное время 14:30 UTC — у клиента (UTC−8) ещё 2026-01-01 06:30.
+        CarbonImmutable::setTestNow('2026-01-01 14:30:00');
+
+        $eventType = EventType::factory()->create();
+
+        $response = $this->getJson(
+            "/api/event-types/{$eventType->id}/slots?date=2026-01-01&tz=America/Los_Angeles"
+        );
+
+        $response->assertOk();
+
+        $starts = collect($response->json())->pluck('start');
+
+        $clientNow = CarbonImmutable::now('America/Los_Angeles');
+        // Граница «сейчас» учитывает таймзону клиента.
+        $this->assertTrue($starts->every(
+            fn (string $iso) => CarbonImmutable::parse($iso)->gt($clientNow)
+        ));
+        // Первый слот — ближайшая 30-минутная граница после 06:30 по клиенту.
+        $this->assertSame('2026-01-01T07:00:00-08:00', $starts->first());
+    }
+
+    public function test_day_start_is_computed_in_client_timezone(): void
+    {
+        // Серверное время 22:30 UTC — у клиента (UTC+3) уже 2026-01-02 01:30.
+        CarbonImmutable::setTestNow('2026-01-01 22:30:00');
+
+        $eventType = EventType::factory()->create();
+        // Дата сформирована в UTC (например, без учета таймзоны клиента).
+        $date = CarbonImmutable::create(2026, 1, 2, 0, 0, 0, 'UTC');
+
+        $slots = app(SlotService::class)->availableSlots($eventType, $date, 'Europe/Moscow');
+
+        $starts = collect($slots)->pluck('start');
+
+        // startOfDay должен считаться в таймзоне клиента (00:00 по Москве),
+        // а не от UTC-даты (иначе первые слоты 00:00–03:00 по Москве теряются).
         $this->assertSame('2026-01-02T02:00:00+03:00', $starts->first());
     }
 
